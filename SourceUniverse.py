@@ -262,4 +262,4 @@ if __name__ == "__main__":
     dist = SourceCountDistribution(log10mu=logMu_array,
                                    dNdlog10mu=np.array(Count_array),
                                    density=args.density)
-    dist.save(args.filename)
+    dist.save_to_file(args.filename)
