@@ -1,16 +1,14 @@
+#!/usr/bin/python
+
 import numpy as np
 from cosmolopy.distance import diff_comoving_volume, luminosity_distance, comoving_volume, set_omega_k_0
-from fancy_plot import *
-import inspect
 import scipy
 from scipy.stats import lognorm, norm
 import time
-import sys
 from scipy.interpolate import UnivariateSpline
 from scipy.optimize import curve_fit
 import cPickle
-
-
+import argparse
 
 # StarFormationHistory (SFR), from Hopkins and Beacom 2006, unit = M_sun/yr/Mpc^3 
 @np.vectorize
@@ -192,3 +190,37 @@ class SourceCountDistribution(object):
             density = self.default_density
         N_sources = int(density/self.default_density*self.N_source_default_density)
         return self.sf_spline(self.rng.uniform(low=0.0, high=1.0, size=N_sources))
+
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-o', action='store', dest='filename',default= 'SourceCount.pickle',
+                        help='Output filename')
+    parser.add_argument('-d', action='store', dest='density', type=float, default = 1e-7,
+                        help='Local neutrino source density [1/Mpc^3]')
+    parser.add_argument("--L", action="store",
+                        dest="luminosity", type=float, default=1e50,
+                        help="Set luminosity for each source, unit erg/yr")
+    parser.add_argument("--index", action="store", dest='index', type=float, default=2.0,
+                        help="Astrophysical neutrino spectral index on E^2 dN/dE = A (E/100 TeV)^(-index+2) GeV/cm^2.s.sr")
+    parser.add_argument("--sigma", action="store",
+                        dest="sigma", type=float, default=1.0,
+                        help="Width of a log normal Luminosity function in dex, default: 1.0")
+    
+    # Not yet implemented
+    # parser.add_argument("--LF",action="store", dest="LF",default="SC",                    
+    #                     help="Luminosity function, SC for standard candles, LG for lognormal, PL for powerlaw")
+    # parser.add_argument("--evolution", action="store",
+    #                    dest="Evolution", default='HB2006SFR',
+    #                    help="Source evolution options:  HB2006SFR (default),  NoEvolution")
+
+    args = parser.parse_args()
+    
+    logMu_array, Count_array, zs, Flux_from_fixed_z = calc_pdf(density=args.density, L_nu=args.luminosity, sigma=args.sigma, gamma=args.index, 
+                                                               flux_to_mu=1, 
+                                                               logMu_range = [-20,-6], N_Mu_bins = 2000, 
+                                                               z_limits = [0.04, 10.], nzbins = 1200, # lower bound in Firesong 0.0005
+                                                               Lum_limits = [args.luminosity*1e-5,args.luminosity*1e5], nLbins = 1200)
+                                                               
+    dist = SourceCountDistribution(log10mu=logMu_array, dNdlog10mu=np.array(Count_array), density=args.density)
+    dist.save(args.filename)
